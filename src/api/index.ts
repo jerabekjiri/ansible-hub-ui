@@ -70,7 +70,7 @@ export { SigningServiceAPI, SigningServiceType } from './signing-service';
 export { RoleType, GroupRoleType } from './response-types/role';
 export { CertificateUploadAPI } from './certificate-upload';
 export { Repositories } from './repositories';
-export { RepositoryDistributions } from './repository-distributions';
+export { RepositoryDistributionsAPI } from './repository-distributions';
 export { SignContainersAPI } from './sign-containers';
 export {
   LegacyRoleDetailType,

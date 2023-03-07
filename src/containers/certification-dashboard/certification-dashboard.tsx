@@ -23,7 +23,7 @@ import {
   CollectionVersionAPI,
   CollectionVersionSearch,
   Repositories,
-  RepositoryDistributions,
+  RepositoryDistributionsAPI,
 } from 'src/api';
 import {
   BaseHeader,
@@ -627,37 +627,28 @@ class CertificationDashboard extends React.Component<RouteProps, IState> {
       });
   }
 
-  private queryDistributions(collections: CollectionVersionSearch[]) {
-    const repoHrefs = Array.from(
-      new Set(collections.map((c) => c.repository.pulp_href)),
-    );
-    const repoHrefToDistro = {};
-
-    RepositoryDistributions.queryDistributionsByRepositoryHrefs(repoHrefs)
-      .then((res) => {
-        res.forEach((distro) => {
-          repoHrefToDistro[distro.repository] = distro;
-        });
-        this.setState({ repoHrefToDistro });
-      })
-      .catch((error) => {
-        this.setState({ repoHrefToDistro: null });
-        this.addAlert(t`Error loading collections.`, 'danger', error?.message);
-      });
-  }
-
   private queryCollections() {
     this.setState({ loading: true }, () => {
       const { status, ...params } = this.state.params;
       CollectionVersionAPI.list({ repository_label: status, ...params })
         .then((result) => {
-          this.queryDistributions(result.data.data);
-          this.setState({
-            versions: result.data.data,
-            itemCount: result.data.meta.count,
-            loading: false,
-            updatingVersions: [],
-          });
+          RepositoryDistributionsAPI.queryDistributions(result.data.data)
+            .then((repoHrefToDistro: object) => {
+              this.setState({
+                versions: result.data.data,
+                itemCount: result.data.meta.count,
+                loading: false,
+                updatingVersions: [],
+                repoHrefToDistro,
+              });
+            })
+            .catch((error) => {
+              this.addAlert(
+                t`Error loading collections.`,
+                'danger',
+                error?.message,
+              );
+            });
         })
         .catch((error) => {
           this.addAlert(

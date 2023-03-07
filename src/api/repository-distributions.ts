@@ -1,9 +1,13 @@
 import { PulpAPI } from './pulp';
+import { CollectionVersionSearch } from './response-types/collection';
+import { PulpAnsibleDistributionType } from './response-types/distribution';
 
 class API extends PulpAPI {
   apiPath = '/distributions/ansible/ansible/';
 
-  queryDistributionsByRepositoryHrefs(repoHrefs: string[]): Promise<any> {
+  queryDistributionsByRepositoryHrefs(
+    repoHrefs: string[],
+  ): Promise<PulpAnsibleDistributionType[]> {
     return new Promise((resolve, reject) => {
       const params = {
         page_size: '999',
@@ -23,6 +27,27 @@ class API extends PulpAPI {
         });
     });
   }
+
+  queryDistributions(collections: CollectionVersionSearch[]) {
+    return new Promise((resolve, reject) => {
+      const repoHrefs = Array.from(
+        new Set(collections.map((c) => c.repository.pulp_href)),
+      );
+      const repoHrefToDistro = {};
+
+      this.queryDistributionsByRepositoryHrefs(repoHrefs)
+        .then((res) => {
+          console.log(res);
+          res.forEach((distro) => {
+            repoHrefToDistro[distro.repository] = distro;
+          });
+          return resolve(repoHrefToDistro);
+        })
+        .catch((error) => {
+          return reject(error);
+        });
+    });
+  }
 }
 
-export const RepositoryDistributions = new API();
+export const RepositoryDistributionsAPI = new API();

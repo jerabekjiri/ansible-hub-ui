@@ -2,12 +2,13 @@ import { t } from '@lingui/macro';
 import { cloneDeep } from 'lodash';
 import * as React from 'react';
 import {
-  CollectionVersion,
   CollectionVersionAPI,
+  CollectionVersionSearch,
   ImportAPI,
   ImportDetailType,
   ImportListType,
   PulpStatus,
+  RepositoryDistributionsAPI,
 } from 'src/api';
 import {
   AlertList,
@@ -26,7 +27,7 @@ interface IState {
   selectedImport: ImportListType;
   importList: ImportListType[];
   selectedImportDetails: ImportDetailType;
-  selectedCollectionVersion: CollectionVersion;
+  selectedCollectionVersion: CollectionVersionSearch;
   params: {
     page_size?: number;
     page?: number;
@@ -39,6 +40,7 @@ interface IState {
   loadingImports: boolean;
   loadingImportDetails: boolean;
   alerts: AlertType[];
+  repoHrefToDistro: object;
 }
 
 class MyImports extends React.Component<RouteProps, IState> {
@@ -67,6 +69,7 @@ class MyImports extends React.Component<RouteProps, IState> {
       loadingImportDetails: true,
       selectedCollectionVersion: undefined,
       alerts: [],
+      repoHrefToDistro: null,
     };
   }
 
@@ -288,11 +291,16 @@ class MyImports extends React.Component<RouteProps, IState> {
                 version: importDeets.version,
               })
                 .then((result) => {
-                  if (result.data.meta.count === 1) {
-                    this.setState({
-                      selectedCollectionVersion: result.data.data[0],
-                    });
-                  }
+                  RepositoryDistributionsAPI.queryDistributions(
+                    result.data.data,
+                  ).then((repoHrefToDistro: object) => {
+                    if (result.data.meta.count === 1) {
+                      this.setState({
+                        selectedCollectionVersion: result.data.data[0],
+                        repoHrefToDistro,
+                      });
+                    }
+                  });
                 })
                 .finally(() => {
                   if (callback) {
