@@ -25,6 +25,7 @@ interface IProps {
   setFollowMessages: (follow: boolean) => void;
   hideCollectionName?: boolean;
   collectionVersion?: CollectionVersionSearch;
+  repoHrefToDistro?: object;
 }
 
 export class ImportConsole extends React.Component<IProps> {
@@ -150,6 +151,10 @@ export class ImportConsole extends React.Component<IProps> {
         approvalStatus = t`could not be determined yet`;
       }
 
+      const distorBasePath =
+        this.props.repoHrefToDistro[collectionVersion.repository.pulp_href]
+          .distro_base_path;
+
       collectionHead = (
         <Link
           className='title'
@@ -158,7 +163,7 @@ export class ImportConsole extends React.Component<IProps> {
             {
               namespace: selectedImport.namespace,
               collection: selectedImport.name,
-              repo: collectionVersion.repository.name,
+              repo: distorBasePath,
             },
             {
               version: selectedImport.version,

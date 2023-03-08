@@ -67,6 +67,7 @@ interface IState {
     page?: number;
     page_size?: number;
     status?: string;
+    sort?: string;
   };
   alerts: AlertType[];
   versions: CollectionVersion[];
@@ -278,7 +279,7 @@ class CertificationDashboard extends React.Component<RouteProps, IState> {
         {
           title: t`Collection`,
           type: 'alpha',
-          id: 'collection',
+          id: 'name',
         },
         {
           title: t`Version`,
@@ -629,8 +630,18 @@ class CertificationDashboard extends React.Component<RouteProps, IState> {
 
   private queryCollections() {
     this.setState({ loading: true }, () => {
-      const { status, ...params } = this.state.params;
-      CollectionVersionAPI.list({ repository_label: status, ...params })
+      const { status, sort, ...params } = this.state.params;
+
+      const updatedParams = {
+        order_by: sort,
+        ...params,
+      };
+
+      if (status) {
+        updatedParams['repository_label'] = status;
+      }
+
+      CollectionVersionAPI.list(updatedParams)
         .then((result) => {
           RepositoryDistributionsAPI.queryDistributions(result.data.data)
             .then((repoHrefToDistro: object) => {

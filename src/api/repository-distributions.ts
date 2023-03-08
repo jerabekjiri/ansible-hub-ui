@@ -37,7 +37,6 @@ class API extends PulpAPI {
 
       this.queryDistributionsByRepositoryHrefs(repoHrefs)
         .then((res) => {
-          console.log(res);
           res.forEach((distro) => {
             repoHrefToDistro[distro.repository] = distro;
           });

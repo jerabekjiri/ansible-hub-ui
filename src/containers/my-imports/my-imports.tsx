@@ -184,6 +184,7 @@ class MyImports extends React.Component<RouteProps, IState> {
                   selectedImport={selectedImport}
                   apiError={importDetailError}
                   collectionVersion={selectedCollectionVersion}
+                  repoHrefToDistro={this.state.repoHrefToDistro}
                 />
               </div>
             </div>
