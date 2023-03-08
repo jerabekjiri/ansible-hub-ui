@@ -8,6 +8,7 @@ import {
   ImportDetailType,
   ImportListType,
   PulpStatus,
+  RepoHrefToDistroType,
   RepositoryDistributionsAPI,
 } from 'src/api';
 import {
@@ -40,7 +41,7 @@ interface IState {
   loadingImports: boolean;
   loadingImportDetails: boolean;
   alerts: AlertType[];
-  repoHrefToDistro: object;
+  mappedRepoHrefToDistro: RepoHrefToDistroType;
 }
 
 class MyImports extends React.Component<RouteProps, IState> {
@@ -69,7 +70,7 @@ class MyImports extends React.Component<RouteProps, IState> {
       loadingImportDetails: true,
       selectedCollectionVersion: undefined,
       alerts: [],
-      repoHrefToDistro: null,
+      mappedRepoHrefToDistro: null,
     };
   }
 
@@ -184,7 +185,7 @@ class MyImports extends React.Component<RouteProps, IState> {
                   selectedImport={selectedImport}
                   apiError={importDetailError}
                   collectionVersion={selectedCollectionVersion}
-                  repoHrefToDistro={this.state.repoHrefToDistro}
+                  repoHrefToDistro={this.state.mappedRepoHrefToDistro}
                 />
               </div>
             </div>
@@ -292,16 +293,17 @@ class MyImports extends React.Component<RouteProps, IState> {
                 version: importDeets.version,
               })
                 .then((result) => {
-                  RepositoryDistributionsAPI.queryDistributions(
-                    result.data.data,
-                  ).then((repoHrefToDistro: object) => {
-                    if (result.data.meta.count === 1) {
+                  if (result.data.meta.count === 1) {
+                    RepositoryDistributionsAPI.queryDistributionsByRepositoryHrefs(
+                      {},
+                      result.data.data,
+                    ).then((mappedRepoHrefToDistro: RepoHrefToDistroType) => {
                       this.setState({
                         selectedCollectionVersion: result.data.data[0],
-                        repoHrefToDistro,
+                        mappedRepoHrefToDistro,
                       });
-                    }
-                  });
+                    });
+                  }
                 })
                 .finally(() => {
                   if (callback) {

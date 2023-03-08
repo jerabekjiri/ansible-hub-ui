@@ -22,3 +22,7 @@ export class PulpAnsibleDistributionType {
   repository: string;
   repository_version: string;
 }
+
+export class RepoHrefToDistroType {
+  [repositoryHref: string]: PulpAnsibleDistributionType;
+}

@@ -1,46 +1,42 @@
+import { CollectionVersionSearch, PulpAnsibleDistributionType } from '../api';
 import { PulpAPI } from './pulp';
-import { CollectionVersionSearch } from './response-types/collection';
-import { PulpAnsibleDistributionType } from './response-types/distribution';
 
 class API extends PulpAPI {
   apiPath = '/distributions/ansible/ansible/';
 
+  // match repository with distribution
+  // map distribution to repository pulp_href
+  // {
+  //    [repository.pulp_href]: {
+  //        ...corresponding distribution
+  //    }
+  // }
   queryDistributionsByRepositoryHrefs(
-    repoHrefs: string[],
-  ): Promise<PulpAnsibleDistributionType[]> {
+    params,
+    collections: CollectionVersionSearch[],
+  ) {
     return new Promise((resolve, reject) => {
-      const params = {
-        page_size: '999',
-      };
+      const repoHrefs = Array.from(
+        new Set(collections.map((c) => c.repository.pulp_href)),
+      );
+
+      if (!params['page_size']) {
+        params['page_size'] = 999;
+      }
 
       if (repoHrefs.length > 0) {
         params['repository__in'] = repoHrefs.join(',');
       }
 
-      super
+      const mappedRepoHrefToDistro = {};
+
+      return super
         .list(params)
         .then((res) => {
-          return resolve(res.data.results);
-        })
-        .catch((err) => {
-          return reject(err);
-        });
-    });
-  }
-
-  queryDistributions(collections: CollectionVersionSearch[]) {
-    return new Promise((resolve, reject) => {
-      const repoHrefs = Array.from(
-        new Set(collections.map((c) => c.repository.pulp_href)),
-      );
-      const repoHrefToDistro = {};
-
-      this.queryDistributionsByRepositoryHrefs(repoHrefs)
-        .then((res) => {
-          res.forEach((distro) => {
-            repoHrefToDistro[distro.repository] = distro;
+          res.data.results.forEach((distro: PulpAnsibleDistributionType) => {
+            mappedRepoHrefToDistro[distro.repository] = distro;
           });
-          return resolve(repoHrefToDistro);
+          return resolve(mappedRepoHrefToDistro);
         })
         .catch((error) => {
           return reject(error);

@@ -22,6 +22,7 @@ import {
   CollectionVersion,
   CollectionVersionAPI,
   CollectionVersionSearch,
+  RepoHrefToDistroType,
   Repositories,
   RepositoryDistributionsAPI,
 } from 'src/api';
@@ -78,7 +79,7 @@ interface IState {
   inputText: string;
   uploadCertificateModalOpen: boolean;
   versionToUploadCertificate?: CollectionVersionSearch['collection_version'];
-  repoHrefToDistro: object;
+  repoHrefToDistro: RepoHrefToDistroType;
 }
 
 class CertificationDashboard extends React.Component<RouteProps, IState> {
@@ -113,7 +114,7 @@ class CertificationDashboard extends React.Component<RouteProps, IState> {
       inputText: '',
       uploadCertificateModalOpen: false,
       versionToUploadCertificate: null,
-      repoHrefToDistro: null,
+      repoHrefToDistro: {},
     };
   }
 
@@ -131,15 +132,8 @@ class CertificationDashboard extends React.Component<RouteProps, IState> {
   }
 
   render() {
-    const {
-      versions,
-      params,
-      itemCount,
-      loading,
-      unauthorized,
-      repoHrefToDistro,
-    } = this.state;
-    if ((!versions || !repoHrefToDistro) && !unauthorized) {
+    const { versions, params, itemCount, loading, unauthorized } = this.state;
+    if (!versions && !unauthorized) {
       return <LoadingPageWithHeader></LoadingPageWithHeader>;
     }
 
@@ -368,43 +362,50 @@ class CertificationDashboard extends React.Component<RouteProps, IState> {
 
   private renderRow(collectionData: CollectionVersionSearch, index) {
     const { collection_version: version, repository } = collectionData;
-
     const distroBasePath =
-      this.state.repoHrefToDistro[repository.pulp_href].base_path;
+      this.state.repoHrefToDistro[repository.pulp_href]?.base_path;
 
     return (
       <tr key={index} data-cy='CertificationDashboard-row'>
         <td>{version.namespace}</td>
         <td>{version.name}</td>
         <td>
-          <Link
-            to={formatPath(
-              Paths.collectionByRepo,
-              {
-                namespace: version.namespace,
-                collection: version.name,
-                repo: distroBasePath,
-              },
-              {
-                version: version.version,
-              },
-            )}
-          >
-            {version.version}
-          </Link>
-          <Button
-            variant={ButtonVariant.link}
-            onClick={() => {
-              this.download(
-                distroBasePath,
-                version.namespace,
-                version.name,
-                version.version,
-              );
-            }}
-          >
-            <DownloadIcon />
-          </Button>
+          {distroBasePath ? (
+            <>
+              <Link
+                to={formatPath(
+                  Paths.collectionByRepo,
+                  {
+                    namespace: version.namespace,
+                    collection: version.name,
+                    repo: distroBasePath,
+                  },
+                  {
+                    version: version.version,
+                  },
+                )}
+              >
+                {version.version}
+              </Link>
+              <Button
+                variant={ButtonVariant.link}
+                onClick={() => {
+                  this.download(
+                    distroBasePath,
+                    version.namespace,
+                    version.name,
+                    version.version,
+                  );
+                }}
+              >
+                <DownloadIcon />
+              </Button>
+            </>
+          ) : (
+            <>
+              {version.version} <DownloadIcon />
+            </>
+          )}
         </td>
         <td>
           <DateComponent date={version.pulp_created} />
@@ -643,23 +644,30 @@ class CertificationDashboard extends React.Component<RouteProps, IState> {
 
       CollectionVersionAPI.list(updatedParams)
         .then((result) => {
-          RepositoryDistributionsAPI.queryDistributions(result.data.data)
-            .then((repoHrefToDistro: object) => {
-              this.setState({
-                versions: result.data.data,
-                itemCount: result.data.meta.count,
-                loading: false,
-                updatingVersions: [],
-                repoHrefToDistro,
+          this.setState({
+            versions: result.data.data,
+            itemCount: result.data.meta.count,
+            loading: false,
+            updatingVersions: [],
+          });
+
+          if (result.data.meta.count > 0) {
+            RepositoryDistributionsAPI.queryDistributionsByRepositoryHrefs(
+              {},
+              result.data.data,
+            )
+              .then((repoHrefToDistro: RepoHrefToDistroType) => {
+                this.setState({ repoHrefToDistro: repoHrefToDistro });
+              })
+              .catch((error) => {
+                this.addAlert(
+                  t`Error loading distributions.`,
+                  'danger',
+                  error?.message,
+                );
+                this.setState({ repoHrefToDistro: {} });
               });
-            })
-            .catch((error) => {
-              this.addAlert(
-                t`Error loading collections.`,
-                'danger',
-                error?.message,
-              );
-            });
+          }
         })
         .catch((error) => {
           this.addAlert(
