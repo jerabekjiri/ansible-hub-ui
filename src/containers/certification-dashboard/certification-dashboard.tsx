@@ -639,7 +639,7 @@ class CertificationDashboard extends React.Component<RouteProps, IState> {
       };
 
       if (status) {
-        updatedParams['repository_label'] = status;
+        updatedParams['repository_label'] = `pipeline=${status}`;
       }
 
       CollectionVersionAPI.list(updatedParams)
