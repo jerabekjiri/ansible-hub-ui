@@ -46,7 +46,6 @@ export { MyDistributionAPI } from './my-distribution';
 export {
   DistributionType,
   PulpAnsibleDistributionType,
-  RepoHrefToDistroType,
 } from './response-types/distribution';
 export { ExecutionEnvironmentAPI } from './execution-environment';
 export { ExecutionEnvironmentRegistryAPI } from './execution-environment-registry';

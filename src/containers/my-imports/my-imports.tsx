@@ -8,8 +8,6 @@ import {
   ImportDetailType,
   ImportListType,
   PulpStatus,
-  RepoHrefToDistroType,
-  RepositoryDistributionsAPI,
 } from 'src/api';
 import {
   AlertList,
@@ -41,7 +39,6 @@ interface IState {
   loadingImports: boolean;
   loadingImportDetails: boolean;
   alerts: AlertType[];
-  mappedRepoHrefToDistro: RepoHrefToDistroType;
 }
 
 class MyImports extends React.Component<RouteProps, IState> {
@@ -70,7 +67,6 @@ class MyImports extends React.Component<RouteProps, IState> {
       loadingImportDetails: true,
       selectedCollectionVersion: undefined,
       alerts: [],
-      mappedRepoHrefToDistro: null,
     };
   }
 
@@ -185,7 +181,6 @@ class MyImports extends React.Component<RouteProps, IState> {
                   selectedImport={selectedImport}
                   apiError={importDetailError}
                   collectionVersion={selectedCollectionVersion}
-                  repoHrefToDistro={this.state.mappedRepoHrefToDistro}
                 />
               </div>
             </div>
@@ -287,21 +282,16 @@ class MyImports extends React.Component<RouteProps, IState> {
 
               // have to use list instead of get because repository_list isn't
               // available on collection version details
-              CollectionVersionAPI.list({
+              CollectionVersionAPI.queryCollectionsWithDistributions({
                 namespace: importDeets.namespace,
                 name: importDeets.name,
                 version: importDeets.version,
               })
                 .then((result) => {
                   if (result.data.meta.count === 1) {
-                    RepositoryDistributionsAPI.queryDistributionsByRepositoryHrefs(
-                      {},
-                      result.data.data,
-                    ).then((mappedRepoHrefToDistro: RepoHrefToDistroType) => {
-                      this.setState({
-                        selectedCollectionVersion: result.data.data[0],
-                        mappedRepoHrefToDistro,
-                      });
+                    console.log(result);
+                    this.setState({
+                      selectedCollectionVersion: result.data.data[0],
                     });
                   }
                 })

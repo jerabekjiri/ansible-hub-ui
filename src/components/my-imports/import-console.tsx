@@ -8,7 +8,6 @@ import {
   ImportDetailType,
   ImportListType,
   PulpStatus,
-  RepoHrefToDistroType,
 } from 'src/api';
 import { StatusIndicator } from 'src/components';
 import { Constants } from 'src/constants';
@@ -26,7 +25,6 @@ interface IProps {
   setFollowMessages: (follow: boolean) => void;
   hideCollectionName?: boolean;
   collectionVersion?: CollectionVersionSearch;
-  repoHrefToDistro?: RepoHrefToDistroType;
 }
 
 export class ImportConsole extends React.Component<IProps> {
@@ -152,10 +150,6 @@ export class ImportConsole extends React.Component<IProps> {
         approvalStatus = t`could not be determined yet`;
       }
 
-      const distroBasePath =
-        this.props.repoHrefToDistro[collectionVersion.repository.pulp_href]
-          .base_path;
-
       collectionHead = (
         <Link
           className='title'
@@ -164,7 +158,7 @@ export class ImportConsole extends React.Component<IProps> {
             {
               namespace: selectedImport.namespace,
               collection: selectedImport.name,
-              repo: distroBasePath,
+              repo: collectionVersion?.distribution.base_path,
             },
             {
               version: selectedImport.version,

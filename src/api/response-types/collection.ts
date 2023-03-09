@@ -1,3 +1,5 @@
+import { PulpAnsibleDistributionType } from '../';
+
 type SignState = 'signed' | 'unsigned';
 
 export class CollectionUploadType {
@@ -92,6 +94,7 @@ export class CollectionVersionSearch {
     retain_repo_versions: number;
     versions_href: string;
   };
+  distribution?: PulpAnsibleDistributionType;
   repository_version: string;
 }
 
