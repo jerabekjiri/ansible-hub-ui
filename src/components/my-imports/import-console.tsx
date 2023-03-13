@@ -24,7 +24,7 @@ interface IProps {
 
   setFollowMessages: (follow: boolean) => void;
   hideCollectionName?: boolean;
-  collectionVersion?: CollectionVersionSearch;
+  collection?: CollectionVersionSearch;
 }
 
 export class ImportConsole extends React.Component<IProps> {
@@ -125,7 +125,7 @@ export class ImportConsole extends React.Component<IProps> {
   }
 
   private renderTitle(selectedImport) {
-    const { task, hideCollectionName, collectionVersion, empty } = this.props;
+    const { task, hideCollectionName, collection, empty } = this.props;
 
     if (empty) {
       return;
@@ -138,8 +138,8 @@ export class ImportConsole extends React.Component<IProps> {
     );
     let approvalStatus = t`waiting for import to finish`;
 
-    if (collectionVersion) {
-      const repoStatus = collectionVersion.repository.pulp_labels?.pipeline;
+    if (collection) {
+      const repoStatus = collection.repository.pulp_labels?.pipeline;
       if (repoStatus === Constants.NOTCERTIFIED) {
         approvalStatus = t`rejected`;
       } else if (repoStatus === Constants.NEEDSREVIEW) {
@@ -158,7 +158,7 @@ export class ImportConsole extends React.Component<IProps> {
             {
               namespace: selectedImport.namespace,
               collection: selectedImport.name,
-              repo: collectionVersion?.distribution.base_path,
+              repo: collection?.repository.name,
             },
             {
               version: selectedImport.version,

@@ -26,7 +26,7 @@ interface IState {
   selectedImport: ImportListType;
   importList: ImportListType[];
   selectedImportDetails: ImportDetailType;
-  selectedCollectionVersion: CollectionVersionSearch;
+  collection: CollectionVersionSearch;
   params: {
     page_size?: number;
     page?: number;
@@ -65,7 +65,7 @@ class MyImports extends React.Component<RouteProps, IState> {
       followLogs: false,
       loadingImports: true,
       loadingImportDetails: true,
-      selectedCollectionVersion: undefined,
+      collection: null,
       alerts: [],
     };
   }
@@ -118,7 +118,7 @@ class MyImports extends React.Component<RouteProps, IState> {
       loadingImportDetails,
       importDetailError,
       followLogs,
-      selectedCollectionVersion,
+      collection,
     } = this.state;
 
     if (!importList) {
@@ -180,7 +180,7 @@ class MyImports extends React.Component<RouteProps, IState> {
                   }}
                   selectedImport={selectedImport}
                   apiError={importDetailError}
-                  collectionVersion={selectedCollectionVersion}
+                  collection={collection}
                 />
               </div>
             </div>
@@ -275,23 +275,22 @@ class MyImports extends React.Component<RouteProps, IState> {
               importDetailError: '',
               loadingImportDetails: false,
               selectedImportDetails: result.data,
-              selectedCollectionVersion: undefined,
+              collection: null,
             },
             () => {
               const importDeets = this.state.selectedImportDetails;
 
               // have to use list instead of get because repository_list isn't
               // available on collection version details
-              CollectionVersionAPI.queryCollectionsWithDistributions({
+              CollectionVersionAPI.list({
                 namespace: importDeets.namespace,
                 name: importDeets.name,
                 version: importDeets.version,
               })
                 .then((result) => {
                   if (result.data.meta.count === 1) {
-                    console.log(result);
                     this.setState({
-                      selectedCollectionVersion: result.data.data[0],
+                      collection: result.data.data[0],
                     });
                   }
                 })

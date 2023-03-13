@@ -356,48 +356,40 @@ class CertificationDashboard extends React.Component<RouteProps, IState> {
   }
 
   private renderRow(collectionData: CollectionVersionSearch, index) {
-    const { collection_version: version, distribution } = collectionData;
+    const { collection_version: version, repository } = collectionData;
     return (
       <tr key={index} data-cy='CertificationDashboard-row'>
         <td>{version.namespace}</td>
         <td>{version.name}</td>
         <td>
-          {distribution ? (
-            <>
-              <Link
-                to={formatPath(
-                  Paths.collectionByRepo,
-                  {
-                    namespace: version.namespace,
-                    collection: version.name,
-                    repo: distribution.base_path,
-                  },
-                  {
-                    version: version.version,
-                  },
-                )}
-              >
-                {version.version}
-              </Link>
-              <Button
-                variant={ButtonVariant.link}
-                onClick={() => {
-                  this.download(
-                    distribution.base_path,
-                    version.namespace,
-                    version.name,
-                    version.version,
-                  );
-                }}
-              >
-                <DownloadIcon />
-              </Button>
-            </>
-          ) : (
-            <>
-              {version.version} <DownloadIcon />
-            </>
-          )}
+          <Link
+            to={formatPath(
+              Paths.collectionByRepo,
+              {
+                namespace: version.namespace,
+                collection: version.name,
+                repo: repository.name,
+              },
+              {
+                version: version.version,
+              },
+            )}
+          >
+            {version.version}
+          </Link>
+          <Button
+            variant={ButtonVariant.link}
+            onClick={() => {
+              this.download(
+                repository,
+                version.namespace,
+                version.name,
+                version.version,
+              );
+            }}
+          >
+            <DownloadIcon />
+          </Button>
         </td>
         <td>
           <DateComponent date={version.pulp_created} />
@@ -634,7 +626,7 @@ class CertificationDashboard extends React.Component<RouteProps, IState> {
         updatedParams['repository_label'] = `pipeline=${status}`;
       }
 
-      CollectionVersionAPI.queryCollectionsWithDistributions(updatedParams)
+      CollectionVersionAPI.list(updatedParams)
         .then((result) => {
           this.setState({
             versions: result.data.data,
@@ -658,12 +650,12 @@ class CertificationDashboard extends React.Component<RouteProps, IState> {
   }
 
   private download(
-    distroBasePath: string,
+    repository: CollectionVersionSearch['repository'],
     namespace: string,
     name: string,
     version: string,
   ) {
-    CollectionAPI.getDownloadURL(distroBasePath, namespace, name, version).then(
+    CollectionAPI.getDownloadURL(repository, namespace, name, version).then(
       (downloadURL: string) => {
         window.location.assign(downloadURL);
       },
