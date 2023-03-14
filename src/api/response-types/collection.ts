@@ -55,6 +55,9 @@ export class CollectionVersionDetail extends CollectionVersion {
 export class CollectionVersionSearch {
   collection_version: {
     contents: ContentSummaryType[];
+    dependencies: {
+      [collection: string]: string;
+    };
     description: string;
     name: string;
     namespace: string;
@@ -93,6 +96,35 @@ export class CollectionVersionSearch {
     versions_href: string;
   };
   repository_version: string;
+}
+
+export class CollectionVersionContentType {
+  artifact: object;
+  collection: object;
+  created_at: string;
+  download_url: string;
+  git_commit_sha?: string;
+  git_url?: string;
+  requires_ansible?: string;
+  docs_blob: DocsBlobType;
+  metadata: {
+    contents: ContentSummaryType[];
+    description: string;
+    tags: string[];
+    authors: string[];
+    license: string[];
+    homepage: string;
+    documentation: string;
+    issues: string;
+    repository: string;
+    dependencies: DependencyType[];
+  };
+  signatures: {
+    signature: string;
+    pubkey_fingerprint: string;
+    signing_service: string;
+    pulp_created: string;
+  }[];
 }
 
 export class CollectionListType {

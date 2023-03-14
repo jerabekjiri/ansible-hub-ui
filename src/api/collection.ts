@@ -3,9 +3,24 @@ import {
   CollectionDetailType,
   CollectionListType,
   CollectionUploadType,
+  CollectionVersionSearch,
   RepositoryDistributionsAPI,
 } from 'src/api';
 import { HubAPI } from './hub';
+
+// return correct distro
+export function findDistroBasePathByRepo(distributions, repository) {
+  if (distributions.length === 0) {
+    // if distribution doesn't exist, use repository name
+    return repository.name;
+  }
+
+  // try to look for match by name, if not, just use the first distro
+  const distro = distributions.find(
+    (distro) => distro.name === repository.name,
+  );
+  return distro ? distro.base_path : distro[0].base_path;
+}
 
 function filterContents(contents) {
   if (contents) {
@@ -81,20 +96,32 @@ export class API extends HubAPI {
       });
   }
 
-  setDeprecation(
-    collection: CollectionListType,
-    isDeprecated: boolean,
-    repo: string,
-  ) {
-    const path = `v3/plugin/ansible/content/${repo}/collections/index/`;
+  setDeprecation(collection: CollectionVersionSearch) {
+    const {
+      collection_version: { namespace, name },
+      repository,
+      is_deprecated,
+    } = collection;
+    return new Promise((resolve, reject) => {
+      RepositoryDistributionsAPI.list({
+        repository: repository.pulp_href,
+      })
+        .then((result) => {
+          const basePath = findDistroBasePathByRepo(result.data, repository);
 
-    return this.patch(
-      `${collection.namespace.name}/${collection.name}`,
-      {
-        deprecated: isDeprecated,
-      },
-      path,
-    );
+          const path = `v3/plugin/ansible/content/${basePath}/collections/index/`;
+          this.patch(
+            `${namespace}/${name}`,
+            {
+              deprecated: is_deprecated,
+            },
+            path,
+          )
+            .then((res) => resolve(res))
+            .catch((err) => reject(err));
+        })
+        .catch((err) => reject(err));
+    });
   }
 
   upload(
@@ -160,25 +187,14 @@ export class API extends HubAPI {
   getDownloadURL(repository, namespace, name, version) {
     // UI API doesn't have tarball download link, so query it separately here
     return new Promise((resolve, reject) => {
-      // get distro_base_path first
       RepositoryDistributionsAPI.list({
         repository: repository.pulp_href,
       })
         .then((result) => {
-          const { results, count } = result.data;
-          let basePath;
-
-          // find correct distro
-          if (count === 0) {
-            // if distribution doesn't exist, use repository name
-            basePath = repository.name;
-          } else {
-            // try to look for match by name, if not, just use the first distro
-            const distro = results.find(
-              (distro) => distro.name === repository.name,
-            );
-            basePath = distro ? distro.base_path : distro[0].base_path;
-          }
+          const basePath = findDistroBasePathByRepo(
+            result.data.results,
+            repository,
+          );
 
           this.http
             .get(
@@ -216,6 +232,33 @@ export class API extends HubAPI {
         `collection-versions/?dependency=${namespace}.${collection}`,
       ),
       { params: this.mapPageToOffset(params), cancelToken: cancelToken?.token },
+    );
+  }
+
+  getContent(distroBasePath, namespace, name, version) {
+    // missing signatures
+    // return super.list({ namespace, name, version }, `pulp/api/v3/content/ansible/collection_versions/`)
+
+    // missing docs_blob
+    return this.http.get(
+      `v3/plugin/ansible/content/${distroBasePath}/collections/index/${namespace}/${name}/versions/${version}/`,
+    );
+  }
+
+  getContent2(namespace, name, version) {
+    return super.list(
+      {
+        namespace,
+        name,
+        version,
+      },
+      `pulp/api/v3/content/ansible/collection_versions/`,
+    );
+  }
+
+  getDocs(distroBasePath, namespace, name, version) {
+    return this.http.get(
+      `v3/plugin/ansible/content/${distroBasePath}/collections/index/${namespace}/${name}/versions/${version}/docs-blob/`,
     );
   }
 }

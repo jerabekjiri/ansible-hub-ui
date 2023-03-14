@@ -1,4 +1,10 @@
-import { CollectionAPI, CollectionDetailType } from 'src/api';
+import {
+  CollectionAPI,
+  CollectionDetailType,
+  CollectionVersionAPI,
+  CollectionVersionSearch,
+  PulpAnsibleDistributionType,
+} from 'src/api';
 import { AlertType } from 'src/components';
 import { Paths, formatPath } from 'src/paths';
 
@@ -8,8 +14,10 @@ export interface IBaseCollectionState {
     showing?: string;
     keywords?: string;
   };
-  collection: CollectionDetailType;
+  collections?: CollectionVersionSearch[];
+  collection?: CollectionVersionSearch;
   alerts?: AlertType[];
+  distroBasePath?: string;
 }
 
 export function loadCollection({
@@ -20,25 +28,29 @@ export function loadCollection({
   setCollection,
   stateParams,
 }) {
-  CollectionAPI.getCached(
-    matchParams['namespace'],
-    matchParams['collection'],
-    selectedRepo,
-    { ...stateParams, include_related: 'my_permissions' },
-    forceReload,
-  )
-    .then((result) => {
-      return CollectionAPI.list(
-        {
-          name: matchParams['collection'],
-        },
-        selectedRepo,
-      ).then((collections) => {
-        result.deprecated = collections.data.data[0].deprecated;
-        setCollection(result);
-      });
-    })
-    .catch(() => {
-      navigate(formatPath(Paths.notFound));
-    });
+  // CollectionAPI.getCached(
+  //   matchParams['namespace'],
+  //   matchParams['collection'],
+  //   selectedRepo,
+  // { ...stateParams, include_related: 'my_permissions' },
+  //   forceReload,
+  // ).then((result) => {
+  //console.log(result);
+  // .then((result) => {
+
+  return CollectionVersionAPI.list({
+    name: matchParams['collection'],
+    repository_name: selectedRepo,
+    order_by: '-version',
+  }).then((result) => {
+    const res = result.data.data;
+    setCollection(
+      res,
+      res.find((cv) => cv.is_highest),
+    );
+  });
+  // .catch(() => {
+  //   navigate(formatPath(Paths.notFound));
+  // });
+  // })
 }

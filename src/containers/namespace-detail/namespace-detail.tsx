@@ -15,6 +15,8 @@ import { Link, Navigate } from 'react-router-dom';
 import {
   CollectionAPI,
   CollectionListType,
+  CollectionVersionAPI,
+  CollectionVersionSearch,
   GroupType,
   MyNamespaceAPI,
   NamespaceAPI,
@@ -60,7 +62,7 @@ import './namespace-detail.scss';
 
 interface IState {
   canSign: boolean;
-  collections: CollectionListType[];
+  collections: CollectionVersionSearch[];
   namespace: NamespaceType;
   params: {
     sort?: string;
@@ -75,7 +77,7 @@ interface IState {
   itemCount: number;
   showImportModal: boolean;
   warning: string;
-  updateCollection: CollectionListType;
+  updateCollection: CollectionVersionSearch;
   showControls: boolean;
   isOpenNamespaceModal: boolean;
   isOpenSignModal: boolean;
@@ -306,7 +308,7 @@ export class NamespaceDetail extends React.Component<IProps, IState> {
           }
           // onCancel
           setOpen={(isOpen, warn) => this.toggleImportModal(isOpen, warn)}
-          collection={updateCollection}
+          collection={updateCollection?.collection_version}
           namespace={namespace.name}
         />
         <DeleteCollectionModal
@@ -425,7 +427,6 @@ export class NamespaceDetail extends React.Component<IProps, IState> {
                   collections={collections}
                   itemCount={itemCount}
                   showControls={this.state.showControls}
-                  repo={this.context.selectedRepo}
                   renderCollectionControls={(collection) =>
                     this.renderCollectionControls(collection)
                   }
@@ -562,8 +563,11 @@ export class NamespaceDetail extends React.Component<IProps, IState> {
     );
   }
 
-  private handleCollectionAction(id, action) {
-    const collection = this.state.collections.find((x) => x.id === id);
+  private handleCollectionAction(pulp_href, action) {
+    const collection = this.state.collections.find(
+      (c) => c.collection_version.pulp_href === pulp_href,
+    );
+    const { name, namespace } = collection.collection_version;
 
     switch (action) {
       case 'upload':
@@ -578,21 +582,17 @@ export class NamespaceDetail extends React.Component<IProps, IState> {
             ...this.state.alerts,
             {
               variant: 'info',
-              title: t`Deprecation status update starting for collection "${collection.name}".`,
+              title: t`Deprecation status update starting for collection "${name}".`,
             },
           ],
         });
-        CollectionAPI.setDeprecation(
-          collection,
-          !collection.deprecated,
-          this.context.selectedRepo,
-        )
-          .then((result) => {
+        CollectionAPI.setDeprecation(collection)
+          .then((result: any) => {
             const taskId = parsePulpIDFromURL(result.data.task);
             return waitForTask(taskId).then(() => {
-              const title = collection.deprecated
-                ? t`Collection "${collection.name}" has been successfully undeprecated.`
-                : t`Collection "${collection.name}" has been successfully deprecated.`;
+              const title = collection.is_deprecated
+                ? t`Collection "${name}" has been successfully undeprecated.`
+                : t`Collection "${name}" has been successfully deprecated.`;
               this.setState({
                 alerts: [
                   ...this.state.alerts,
@@ -673,12 +673,11 @@ export class NamespaceDetail extends React.Component<IProps, IState> {
   }
 
   private loadCollections() {
-    CollectionAPI.list(
-      {
-        ...ParamHelper.getReduced(this.state.params, this.nonAPIParams),
-      },
-      this.context.selectedRepo,
-    ).then((result) => {
+    CollectionVersionAPI.list({
+      ...ParamHelper.getReduced(this.state.params, this.nonAPIParams),
+      repository_label: '!hide_from_search',
+      repository_name: this.context.selectedRepo,
+    }).then((result) => {
       this.setState({
         collections: result.data.data,
         itemCount: result.data.meta.count,
@@ -688,12 +687,11 @@ export class NamespaceDetail extends React.Component<IProps, IState> {
 
   private load() {
     Promise.all([
-      CollectionAPI.list(
-        {
-          ...ParamHelper.getReduced(this.state.params, this.nonAPIParams),
-        },
-        this.context.selectedRepo,
-      ),
+      CollectionVersionAPI.list({
+        ...ParamHelper.getReduced(this.state.params, this.nonAPIParams),
+        repository_label: '!hide_from_search',
+        repository_name: this.context.selectedRepo,
+      }),
       NamespaceAPI.get(this.props.routeParams.namespace, {
         include_related: 'my_permissions',
       }),
@@ -726,7 +724,6 @@ export class NamespaceDetail extends React.Component<IProps, IState> {
             val[1].data['groups'],
           ),
         });
-
         this.loadAllRepos(val[0].data.meta.count);
       })
       .catch(() => {
@@ -938,12 +935,17 @@ export class NamespaceDetail extends React.Component<IProps, IState> {
     return closeAlertMixin('alerts');
   }
 
-  private renderCollectionControls(collection: CollectionListType) {
+  private renderCollectionControls(collection: CollectionVersionSearch) {
     const { hasPermission } = this.context;
     return (
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <Button
-          onClick={() => this.handleCollectionAction(collection.id, 'upload')}
+          onClick={() =>
+            this.handleCollectionAction(
+              collection.collection_version.pulp_href,
+              'upload',
+            )
+          }
           variant='secondary'
         >
           {t`Upload new version`}
@@ -962,11 +964,14 @@ export class NamespaceDetail extends React.Component<IProps, IState> {
             }),
             <DropdownItem
               onClick={() =>
-                this.handleCollectionAction(collection.id, 'deprecate')
+                this.handleCollectionAction(
+                  collection.collection_version.pulp_href,
+                  'deprecate',
+                )
               }
               key='deprecate'
             >
-              {collection.deprecated ? t`Undeprecate` : t`Deprecate`}
+              {collection.is_deprecated ? t`Undeprecate` : t`Deprecate`}
             </DropdownItem>,
           ].filter(Boolean)}
           ariaLabel='collection-kebab'

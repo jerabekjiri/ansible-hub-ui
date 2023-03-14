@@ -27,7 +27,8 @@ class CollectionImportLog extends React.Component<RouteProps, IState> {
     const params = ParamHelper.parseParamString(props.location.search);
 
     this.state = {
-      collection: undefined,
+      collection: null,
+      collections: [],
       params: params,
       loadingImports: true,
       selectedImportDetail: undefined,
@@ -43,6 +44,7 @@ class CollectionImportLog extends React.Component<RouteProps, IState> {
   render() {
     const {
       collection,
+      collections,
       params,
       loadingImports,
       selectedImportDetail,
@@ -54,22 +56,24 @@ class CollectionImportLog extends React.Component<RouteProps, IState> {
       return <LoadingPageWithHeader></LoadingPageWithHeader>;
     }
 
+    const { collection_version, repository } = collection;
+
     const breadcrumbs = [
       namespaceBreadcrumb,
       {
         url: formatPath(Paths.namespaceByRepo, {
-          namespace: collection.namespace.name,
-          repo: this.context.selectedRepo,
+          namespace: collection_version.namespace,
+          repo: repository.name,
         }),
-        name: collection.namespace.name,
+        name: collection_version.namespace,
       },
       {
         url: formatPath(Paths.collectionByRepo, {
-          namespace: collection.namespace.name,
-          collection: collection.name,
-          repo: this.context.selectedRepo,
+          namespace: collection_version.namespace,
+          collection: collection_version.name,
+          repo: repository.name,
         }),
-        name: collection.name,
+        name: collection_version.name,
       },
       { name: t`Import log` },
     ];
@@ -78,6 +82,7 @@ class CollectionImportLog extends React.Component<RouteProps, IState> {
       <React.Fragment>
         <CollectionHeader
           reload={() => this.loadData(true)}
+          collections={collections}
           collection={collection}
           params={params}
           updateParams={(params) =>
@@ -110,9 +115,9 @@ class CollectionImportLog extends React.Component<RouteProps, IState> {
     this.setState({ loadingImports: true }, () => {
       this.loadCollection(forceReload, () => {
         ImportAPI.list({
-          namespace: this.state.collection.namespace.name,
-          name: this.state.collection.name,
-          version: this.state.collection.latest_version.version,
+          namespace: this.state.collection.collection_version.namespace,
+          name: this.state.collection.collection_version.name,
+          version: this.state.collection.collection_version.version,
           sort: '-created',
         })
           .then((importListResult) => {
@@ -149,7 +154,8 @@ class CollectionImportLog extends React.Component<RouteProps, IState> {
       matchParams: this.props.routeParams,
       navigate: this.props.navigate,
       selectedRepo: this.context.selectedRepo,
-      setCollection: (collection) => this.setState({ collection }, callback),
+      setCollection: (collections, collection) =>
+        this.setState({ collections, collection }, callback),
       stateParams: this.state.params,
     });
   }

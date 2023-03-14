@@ -33,7 +33,7 @@ class Table {
 }
 
 interface IProps {
-  docs_blob: DocsBlobType;
+  docs_blob: any; // FIXME DocsBlobType;
   namespace: string;
   collection: string;
   params: { keywords?: string };

@@ -1,9 +1,16 @@
 import { isEqual } from 'lodash';
 import * as React from 'react';
 import {
+  CollectionAPI,
+  CollectionVersionContentType,
+  RepositoryDistributionsAPI,
+  findDistroBasePathByRepo,
+} from 'src/api';
+import {
   AlertList,
   CollectionHeader,
   CollectionInfo,
+  LoadingPageSpinner,
   LoadingPageWithHeader,
   Main,
   closeAlertMixin,
@@ -14,51 +21,58 @@ import { RouteProps, withRouter } from 'src/utilities';
 import { ParamHelper } from 'src/utilities/param-helper';
 import { IBaseCollectionState, loadCollection } from './base';
 
+interface IState extends IBaseCollectionState {
+  content?: CollectionVersionContentType;
+}
+
 // renders collection level information
-class CollectionDetail extends React.Component<
-  RouteProps,
-  IBaseCollectionState
-> {
+class CollectionDetail extends React.Component<RouteProps, IState> {
   constructor(props) {
     super(props);
 
     const params = ParamHelper.parseParamString(props.location.search);
 
     this.state = {
-      collection: undefined,
+      collections: [],
+      collection: null,
+      content: null,
+      distroBasePath: null,
       params: params,
       alerts: [],
     };
   }
 
   componentDidMount() {
-    this.loadCollection(true);
+    this.loadCollections(true);
   }
 
   componentDidUpdate(prevProps) {
     if (!isEqual(prevProps.location, this.props.location)) {
-      this.loadCollection(false);
+      this.loadCollections(false);
     }
   }
 
   render() {
-    const { collection, params, alerts } = this.state;
+    const { collections, collection, distroBasePath, content, params, alerts } =
+      this.state;
 
-    if (!collection) {
+    if (collections.length <= 0) {
       return <LoadingPageWithHeader></LoadingPageWithHeader>;
     }
+
+    const { collection_version: version, repository } = collection;
 
     const breadcrumbs = [
       namespaceBreadcrumb,
       {
         url: formatPath(Paths.namespaceByRepo, {
-          namespace: collection.namespace.name,
-          repo: this.context.selectedRepo,
+          namespace: version.namespace,
+          repo: repository.name,
         }),
-        name: collection.namespace.name,
+        name: version.namespace,
       },
       {
-        name: collection.name,
+        name: version.name,
       },
     ];
 
@@ -69,11 +83,13 @@ class CollectionDetail extends React.Component<
           closeAlert={(i) => this.closeAlert(i)}
         ></AlertList>
         <CollectionHeader
-          reload={() => this.loadCollection(true)}
+          reload={() => this.loadCollections(true)}
+          collections={collections}
           collection={collection}
+          content={content}
           params={params}
           updateParams={(p) =>
-            this.updateParams(p, () => this.loadCollection(true))
+            this.updateParams(p, () => this.loadCollections(true))
           }
           breadcrumbs={breadcrumbs}
           activeTab='install'
@@ -81,37 +97,73 @@ class CollectionDetail extends React.Component<
         />
         <Main>
           <section className='body'>
-            <CollectionInfo
-              {...collection}
-              updateParams={(p) => this.updateParams(p)}
-              params={this.state.params}
-              addAlert={(variant, title, description) =>
-                this.setState({
-                  alerts: [
-                    ...this.state.alerts,
-                    {
-                      variant,
-                      title,
-                      description,
-                    },
-                  ],
-                })
-              }
-            />
+            {!distroBasePath ? (
+              <LoadingPageSpinner />
+            ) : (
+              <CollectionInfo
+                {...collection}
+                content={content}
+                distroBasePath={distroBasePath}
+                updateParams={(p) => this.updateParams(p)}
+                params={this.state.params}
+                addAlert={(variant, title, description) =>
+                  this.setState({
+                    alerts: [
+                      ...this.state.alerts,
+                      {
+                        variant,
+                        title,
+                        description,
+                      },
+                    ],
+                  })
+                }
+              />
+            )}
           </section>
         </Main>
       </React.Fragment>
     );
   }
 
-  private loadCollection(forceReload) {
+  private loadCollections(forceReload) {
+    const { repo, ...routeParams } = this.props.routeParams;
     loadCollection({
       forceReload,
-      matchParams: this.props.routeParams,
+      matchParams: {
+        repository_name: repo,
+        ...routeParams,
+      },
       navigate: this.props.navigate,
       selectedRepo: this.context.selectedRepo,
-      setCollection: (collection) => this.setState({ collection }),
+      setCollection: (collections, collection) => {
+        this.setState({
+          collections,
+          collection,
+        });
+        this.queryDistribution(collection.repository);
+      },
       stateParams: this.state.params,
+    });
+  }
+
+  private queryDistribution(repository) {
+    RepositoryDistributionsAPI.list({
+      repository: repository.pulp_href,
+    }).then((result) => {
+      const distroBasePath = findDistroBasePathByRepo(
+        result.data.results,
+        repository,
+      );
+      this.setState({ distroBasePath });
+
+      const { namespace, name, version } =
+        this.state.collection.collection_version;
+      CollectionAPI.getContent(distroBasePath, namespace, name, version).then(
+        (res) => {
+          this.setState({ content: res.data });
+        },
+      );
     });
   }
 

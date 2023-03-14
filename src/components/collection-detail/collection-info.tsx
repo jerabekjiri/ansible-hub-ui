@@ -10,56 +10,83 @@ import {
 import { DownloadIcon } from '@patternfly/react-icons';
 import * as React from 'react';
 import { Link } from 'react-router-dom';
-import { CollectionAPI, CollectionDetailType } from 'src/api';
-import { ClipboardCopy, LoginLink, Tag } from 'src/components';
+import {
+  CollectionAPI,
+  CollectionDetailType,
+  CollectionVersionContentType,
+  CollectionVersionSearch,
+} from 'src/api';
+import {
+  ClipboardCopy,
+  LoadingPageSpinner,
+  LoginLink,
+  Tag,
+} from 'src/components';
 import { useContext } from 'src/loaders/app-context';
 import { Paths, formatPath } from 'src/paths';
 import { errorMessage } from 'src/utilities';
 import './collection-info.scss';
 import { DownloadSignatureGridItem } from './download-signature-grid-item';
 
-interface IProps extends CollectionDetailType {
+interface IProps extends CollectionVersionSearch {
   params: {
     version?: string;
   };
   updateParams: (params) => void;
   addAlert?: (variant, title, description?) => void;
+  distroBasePath?: string;
+  content?: CollectionVersionContentType;
 }
 
 export const CollectionInfo = ({
-  name,
-  latest_version,
-  namespace,
+  collection_version,
+  repository,
+  content,
   params,
   addAlert,
+  distroBasePath,
 }: IProps) => {
   const downloadLinkRef = React.useRef<HTMLAnchorElement>(null);
   const context = useContext();
+  const [docs, setDocs] = React.useState(null);
 
-  let installCommand = `ansible-galaxy collection install ${namespace.name}.${name}`;
+  React.useEffect(() => {
+    const { namespace, name, version } = collection_version;
+    CollectionAPI.getDocs(distroBasePath, namespace, name, version).then(
+      (res) => {
+        setDocs(res.data);
+      },
+    );
+  }, []);
+
+  let installCommand = `ansible-galaxy collection install ${collection_version.namespace}.${collection_version.name}`;
 
   if (params.version) {
     installCommand += `:${params.version}`;
+  }
+
+  if (!content) {
+    return <LoadingPageSpinner />;
   }
 
   return (
     <div className='pf-c-content info-panel'>
       <h1>{t`Install`}</h1>
       <Grid hasGutter={true}>
-        <GridItem>{latest_version.metadata.description}</GridItem>
+        <GridItem>{collection_version.description}</GridItem>
         <GridItem>
-          {latest_version.metadata.tags.map((tag, i) => (
-            <Tag key={i}>{tag}</Tag>
+          {collection_version.tags.map((tag, i) => (
+            <Tag key={i}>{tag.name}</Tag>
           ))}
         </GridItem>
 
-        {latest_version?.metadata?.license?.length > 0 && (
+        {content.metadata.license?.length > 0 && (
           <GridItem>
             <Split hasGutter={true}>
               <SplitItem className='install-title'>{t`License`}</SplitItem>
               <SplitItem isFilled>
-                {latest_version.metadata.license
-                  ? latest_version.metadata.license.join(', ')
+                {content.metadata.license
+                  ? content.metadata.license.join(', ')
                   : ''}
               </SplitItem>
             </Split>
@@ -100,10 +127,10 @@ export const CollectionInfo = ({
                     icon={<DownloadIcon />}
                     onClick={() =>
                       download(
-                        context.selectedRepo,
-                        namespace,
-                        name,
-                        latest_version,
+                        repository,
+                        collection_version.namespace,
+                        collection_version.name,
+                        collection_version.version,
                         downloadLinkRef,
                         addAlert,
                       )
@@ -116,27 +143,27 @@ export const CollectionInfo = ({
             </SplitItem>
           </Split>
         </GridItem>
-        <DownloadSignatureGridItem version={latest_version} />
-        {latest_version.requires_ansible && (
+        <DownloadSignatureGridItem signatures={content.signatures} />
+        {content.requires_ansible && (
           <GridItem>
             <Split hasGutter={true}>
               <SplitItem className='install-title'>
                 {t`Requires Ansible`}
               </SplitItem>
               <SplitItem isFilled data-cy='ansible-requirement'>
-                {latest_version.requires_ansible}
+                {content.requires_ansible}
               </SplitItem>
             </Split>
           </GridItem>
         )}
 
-        {latest_version.docs_blob.collection_readme ? (
+        {docs?.docs_blob?.collection_readme ? (
           <GridItem>
             <div className='hub-readme-container'>
               <div
                 className='pf-c-content'
                 dangerouslySetInnerHTML={{
-                  __html: latest_version.docs_blob.collection_readme.html,
+                  __html: docs.docs_blob.collection_readme.html,
                 }}
               />
               <div className='hub-fade-out'></div>
@@ -145,9 +172,9 @@ export const CollectionInfo = ({
               to={formatPath(
                 Paths.collectionDocsIndexByRepo,
                 {
-                  collection: name,
-                  namespace: namespace.name,
-                  repo: context.selectedRepo,
+                  collection: collection_version.name,
+                  namespace: collection_version.namespace,
+                  repo: repository.name,
                 },
                 params,
               )}
@@ -162,19 +189,14 @@ export const CollectionInfo = ({
 };
 
 function download(
-  reponame,
-  namespace,
-  name,
-  latest_version,
+  repository: CollectionVersionSearch['repository'],
+  namespace: string,
+  name: string,
+  version: string,
   downloadLinkRef,
   addAlert,
 ) {
-  CollectionAPI.getDownloadURL(
-    reponame,
-    namespace.name,
-    name,
-    latest_version.version,
-  )
+  CollectionAPI.getDownloadURL(repository, namespace, name, version)
     .then((downloadURL: string) => {
       // By getting a reference to a hidden <a> tag, setting the href and
       // programmatically clicking it, we can hold off on making the api

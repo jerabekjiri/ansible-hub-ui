@@ -8,6 +8,13 @@ import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { HashLink } from 'react-router-hash-link';
 import {
+  CollectionAPI,
+  CollectionVersionContentType,
+  DocsBlobType,
+  RepositoryDistributionsAPI,
+  findDistroBasePathByRepo,
+} from 'src/api';
+import {
   CollectionHeader,
   EmptyStateCustom,
   LoadingPageWithHeader,
@@ -22,8 +29,13 @@ import { ParamHelper, sanitizeDocsUrls } from 'src/utilities';
 import { IBaseCollectionState, loadCollection } from './base';
 import './collection-detail.scss';
 
+interface IState extends IBaseCollectionState {
+  docs_blob: DocsBlobType;
+  content: CollectionVersionContentType;
+}
+
 // renders markdown files in collection docs/ directory
-class CollectionDocs extends React.Component<RouteProps, IBaseCollectionState> {
+class CollectionDocs extends React.Component<RouteProps, IState> {
   docsRef: React.RefObject<HTMLDivElement>;
   searchBarRef: React.RefObject<HTMLInputElement>;
 
@@ -32,8 +44,11 @@ class CollectionDocs extends React.Component<RouteProps, IBaseCollectionState> {
     const params = ParamHelper.parseParamString(props.location.search);
 
     this.state = {
-      collection: undefined,
+      collections: [],
+      collection: null,
       params: params,
+      docs_blob: null,
+      content: null,
     };
     this.docsRef = React.createRef();
     this.searchBarRef = React.createRef();
@@ -44,12 +59,14 @@ class CollectionDocs extends React.Component<RouteProps, IBaseCollectionState> {
   }
 
   render() {
-    const { params, collection } = this.state;
+    const { params, collection, collections, docs_blob, content } = this.state;
     const urlFields = this.props.routeParams;
 
-    if (!collection) {
+    if (!collection || !content || !docs_blob) {
       return <LoadingPageWithHeader></LoadingPageWithHeader>;
     }
+
+    console.log(content);
 
     // If the parser can't find anything that matches the URL, neither of
     // these variables should be set
@@ -60,11 +77,10 @@ class CollectionDocs extends React.Component<RouteProps, IBaseCollectionState> {
     const contentName = urlFields['name'] || urlFields['page'] || null;
 
     if (contentType === 'docs' && contentName) {
-      if (collection.latest_version.docs_blob.documentation_files) {
-        const file =
-          collection.latest_version.docs_blob.documentation_files.find(
-            (x) => sanitizeDocsUrls(x.name) === urlFields['page'],
-          );
+      if (docs_blob.documentation_files) {
+        const file = docs_blob.documentation_files.find(
+          (x) => sanitizeDocsUrls(x.name) === urlFields['page'],
+        );
 
         if (file) {
           displayHTML = file.html;
@@ -72,8 +88,8 @@ class CollectionDocs extends React.Component<RouteProps, IBaseCollectionState> {
       }
     } else if (contentName) {
       // check if contents exists
-      if (collection.latest_version.docs_blob.contents) {
-        const content = collection.latest_version.docs_blob.contents.find(
+      if (docs_blob.contents) {
+        const content = docs_blob.contents.find(
           (x) =>
             x.content_type === contentType && x.content_name === contentName,
         );
@@ -87,9 +103,8 @@ class CollectionDocs extends React.Component<RouteProps, IBaseCollectionState> {
         }
       }
     } else {
-      if (collection.latest_version.docs_blob.collection_readme) {
-        displayHTML =
-          collection.latest_version.docs_blob.collection_readme.html;
+      if (docs_blob.collection_readme) {
+        displayHTML = docs_blob.collection_readme.html;
       }
     }
 
@@ -97,18 +112,18 @@ class CollectionDocs extends React.Component<RouteProps, IBaseCollectionState> {
       namespaceBreadcrumb,
       {
         url: formatPath(Paths.namespaceByRepo, {
-          namespace: collection.namespace.name,
+          namespace: collection.collection_version.namespace,
           repo: this.context.selectedRepo,
         }),
-        name: collection.namespace.name,
+        name: collection.collection_version.namespace,
       },
       {
         url: formatPath(Paths.collectionByRepo, {
-          namespace: collection.namespace.name,
-          collection: collection.name,
+          namespace: collection.collection_version.namespace,
+          collection: collection.collection_version.name,
           repo: this.context.selectedRepo,
         }),
-        name: collection.name,
+        name: collection.collection_version.name,
       },
       { name: t`Documentation` },
     ];
@@ -127,6 +142,7 @@ class CollectionDocs extends React.Component<RouteProps, IBaseCollectionState> {
         <CollectionHeader
           reload={() => this.loadCollection(true)}
           collection={collection}
+          collections={collections}
           params={params}
           updateParams={(p) =>
             this.updateParams(p, () => this.loadCollection(true))
@@ -140,9 +156,9 @@ class CollectionDocs extends React.Component<RouteProps, IBaseCollectionState> {
           <section className='docs-container'>
             <TableOfContents
               className='sidebar'
-              namespace={collection.namespace.name}
-              collection={collection.name}
-              docs_blob={collection.latest_version.docs_blob}
+              namespace={collection.collection_version.namespace}
+              collection={collection.collection_version.name}
+              docs_blob={docs_blob}
               selectedName={contentName}
               selectedType={contentType}
               params={params}
@@ -169,7 +185,7 @@ class CollectionDocs extends React.Component<RouteProps, IBaseCollectionState> {
                         moduleName,
                         collection,
                         params,
-                        collection.latest_version.metadata.contents,
+                        content.metadata.contents,
                       )
                     }
                     renderDocLink={(name, href) =>
@@ -184,10 +200,10 @@ class CollectionDocs extends React.Component<RouteProps, IBaseCollectionState> {
                   />
                 )
               ) : this.context.selectedRepo === 'community' &&
-                !collection.latest_version.docs_blob.contents ? (
+                !docs_blob.contents ? (
                 this.renderCommunityWarningMessage()
               ) : (
-                this.renderNotFound(collection.name)
+                this.renderNotFound(collection.collection_version.name)
               )}
             </div>
           </section>
@@ -282,8 +298,38 @@ class CollectionDocs extends React.Component<RouteProps, IBaseCollectionState> {
       matchParams: this.props.routeParams,
       navigate: this.props.navigate,
       selectedRepo: this.context.selectedRepo,
-      setCollection: (collection) => this.setState({ collection }),
+      setCollection: (collections, collection) => {
+        this.setState({ collections, collection });
+
+        this.queryDistribution(collection.repository);
+      },
       stateParams: this.state.params,
+    });
+  }
+
+  private queryDistribution(repository) {
+    RepositoryDistributionsAPI.list({
+      repository: repository.pulp_href,
+    }).then((result) => {
+      const distroBasePath = findDistroBasePathByRepo(
+        result.data.results,
+        repository,
+      );
+
+      const { namespace, name, version } =
+        this.state.collection.collection_version;
+
+      CollectionAPI.getDocs(distroBasePath, namespace, name, version).then(
+        (res) => {
+          this.setState({ docs_blob: res.data.docs_blob });
+        },
+      );
+
+      CollectionAPI.getContent(distroBasePath, namespace, name, version).then(
+        (res) => {
+          this.setState({ content: res.data });
+        },
+      );
     });
   }
 

@@ -10,19 +10,23 @@ import {
 } from '@patternfly/react-core';
 import { DownloadIcon } from '@patternfly/react-icons';
 import React, { useState } from 'react';
-import { CollectionVersionDetail } from 'src/api/response-types/collection';
+import {
+  CollectionVersionDetail,
+  CollectionVersionSearch,
+} from 'src/api/response-types/collection';
 import { useContext } from 'src/loaders/app-context';
 
 interface IProps {
-  version: CollectionVersionDetail;
+  // FIXME:
+  signatures: any; // collectionVersionSearch['collection_version'];
 }
 
-export const DownloadSignatureGridItem = ({ version }: IProps) => {
+export const DownloadSignatureGridItem = ({ signatures }: IProps) => {
   const { display_signatures } = useContext().featureFlags;
   const [show, setShow] = useState(false);
 
   // No signature object or the signatures is empty
-  if (!display_signatures || version.metadata.signatures?.length < 1) {
+  if (!display_signatures || signatures.length < 1) {
     return null;
   }
 
@@ -48,7 +52,7 @@ export const DownloadSignatureGridItem = ({ version }: IProps) => {
       </GridItem>
       <GridItem>
         {show &&
-          version.metadata.signatures.map(({ signature }, idx) => (
+          signatures.map(({ signature }, idx) => (
             <CodeBlock key={idx}>
               <CodeBlockCode>{signature}</CodeBlockCode>
             </CodeBlock>

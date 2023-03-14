@@ -1,6 +1,9 @@
+import { CollectionVersionSearch } from '../api';
 import { HubAPI } from './hub';
 
 export class API extends HubAPI {
+  cachedCollection: CollectionVersionSearch;
+
   apiPath = 'v3/plugin/ansible/search/collection-versions/';
 
   setRepository(

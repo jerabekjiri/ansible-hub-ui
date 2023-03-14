@@ -1,11 +1,16 @@
 import { Trans, t } from '@lingui/macro';
 import { Checkbox, Text } from '@patternfly/react-core';
 import React from 'react';
-import { CollectionDetailType, CollectionListType } from 'src/api';
+import {
+  CollectionDetailType,
+  CollectionListType,
+  CollectionVersionSearch,
+} from 'src/api';
 import { DeleteModal } from 'src/components';
 
 interface IProps {
-  deleteCollection: CollectionDetailType | CollectionListType;
+  // FIXME
+  deleteCollection: any;
   isDeletionPending: boolean;
   confirmDelete: boolean;
   collectionVersion?: string;
